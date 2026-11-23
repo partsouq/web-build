@@ -1,9 +1,7 @@
-# Quantora Engineering — website and helpers
+# web-build
 
-This public repository holds:
+Published website build and two helper jobs:
 
-- the published website (branch `gh-pages`, built automatically from the private app repository)
-- the DWG-to-PDF converter that runs on GitHub Actions (`tools/dwg`, GPL-3.0-or-later)
-- the test robot that checks the live website like a visitor (`tests/robot`)
-
-The application source is kept in a private repository.
+- `gh-pages` branch: the compiled website (built automatically)
+- `tools/dwg`: DWG-to-PDF converter that runs on GitHub Actions (GPL-3.0-or-later)
+- `tests/robot`: a browser check of the live website

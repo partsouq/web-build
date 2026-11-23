@@ -2,7 +2,7 @@ name: Convert DWG
 
 # Turns uploaded DWG files into vector PDFs so the take-off can read them (tools/dwg).
 # Started by the database the moment a DWG is uploaded; the schedule is only a backup.
-# This repository is public (the app code is private): the log shows job ids only, never file names or links.
+# Public helper repo: the log shows job ids only, never file names or links.
 on:
   workflow_dispatch:
   schedule:
