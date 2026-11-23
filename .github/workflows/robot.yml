@@ -1,0 +1,95 @@
+name: Test robot
+
+# Uses the live website like a customer every 30 minutes (and after every release).
+# Runs at :13 and :43, not :00/:30: GitHub delays or drops many free scheduled jobs at the top of the hour.
+# No AI BOQ generation (it costs AI credit); real users' BOQ errors are caught by the error watch.
+# A manual run can include the AI BOQ step (Run workflow -> tick "Include the AI BOQ step").
+# Results go to the database; a failure raises an alert on the admin's phone.
+# 2026-11-05: GitHub often skips free scheduled runs (4-5 hours apart instead of 30 minutes), which raised
+# "robot has not reported" alerts. So each run now starts the next one itself, about 25 minutes after it
+# finishes, with the workflow's own GITHUB_TOKEN (no personal token needed). The schedule stays as a backup
+# that restarts the chain if it ever stops. Only one run is active at a time (concurrency group below).
+on:
+  schedule:
+    - cron: "13,43 * * * *"
+  push:
+    branches: [main]
+    paths: [index.html]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Include the AI BOQ step"
+        type: boolean
+        default: false
+
+concurrency:
+  group: test-robot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write      # lets "next" start the following run
+
+jobs:
+  robot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tests/robot
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install browser
+        working-directory: tests/robot
+        run: |
+          npm install --no-audit --no-fund playwright@1.48.2
+          bash ci/install-browser.sh
+
+      - name: Wait for the release to go live
+        if: github.event_name == 'push'
+        run: sleep 150
+
+      - name: Run the robot
+        working-directory: tests/robot
+        env:
+          ROBOT_EMAIL: ${{ secrets.ROBOT_EMAIL }}
+          ROBOT_PASSWORD: ${{ secrets.ROBOT_PASSWORD }}
+          ROBOT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ROBOT_SHOTS: ${{ github.workspace }}/robot-shots
+        run: |
+          if [ -z "$ROBOT_EMAIL" ] || [ -z "$ROBOT_PASSWORD" ]; then echo "Robot account not set up yet (secrets ROBOT_EMAIL / ROBOT_PASSWORD). Skipping."; exit 0; fi
+          FULL=0
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full }}" = "true" ]; then FULL=1; fi
+          echo "Full run (with AI BOQ): $FULL"
+          ROBOT_FULL=$FULL node robot.js
+
+      - name: Keep screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-screenshots
+          path: robot-shots
+          retention-days: 3
+          if-no-files-found: ignore
+
+  # wait about 25 minutes, then start the next run (keeps the 30-minute rhythm whatever GitHub's schedule does)
+  next:
+    needs: robot
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Start the next robot run in about 25 minutes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sleep 1500
+          waiting=$(gh run list --workflow robot.yml --status queued --json databaseId --jq 'length')
+          if [ "$waiting" != "0" ]; then echo "A robot run is already waiting; not starting another."; exit 0; fi
+          gh workflow run robot.yml --ref main
+          echo "Next robot run started."
