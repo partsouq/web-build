@@ -1,6 +1,8 @@
 name: Test robot
 
-# Uses the live website like a customer every 30 minutes (and after every release).
+# Uses the live website like a customer about every 10 minutes (and after every release).
+# 24 Nov 2026 (owner approved "zero-cost prevention"): 30 -> 10 minutes, so bugs are caught before a trial user
+# meets them. Free: this repo is public, and the quick run uses no AI (about 80 seconds).
 # Runs at :13 and :43, not :00/:30: GitHub delays or drops many free scheduled jobs at the top of the hour.
 # No AI BOQ generation (it costs AI credit); real users' BOQ errors are caught by the error watch.
 # A manual run can include the AI BOQ step (Run workflow -> tick "Include the AI BOQ step").
@@ -76,19 +78,19 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-  # wait about 25 minutes, then start the next run (keeps the 30-minute rhythm whatever GitHub's schedule does)
+  # wait about 7 minutes, then start the next run (keeps a ~10-minute rhythm whatever GitHub's schedule does)
   next:
     needs: robot
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
-      - name: Start the next robot run in about 25 minutes
+      - name: Start the next robot run in about 7 minutes
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          sleep 1500
+          sleep 420
           waiting=$(gh run list --workflow robot.yml --status queued --json databaseId --jq 'length')
           if [ "$waiting" != "0" ]; then echo "A robot run is already waiting; not starting another."; exit 0; fi
           gh workflow run robot.yml --ref main
