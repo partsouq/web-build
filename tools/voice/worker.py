@@ -33,11 +33,26 @@ def to_mp3(wav_path):
     return bytes(data + enc.flush())
 
 
+# 24 Nov 2026 (owner chose speed B after a user said the voice was slow): 25% faster, same voice and pitch
+# (ffmpeg atempo, free, already on the GitHub runner). If ffmpeg is missing, the normal speed is kept.
+SPEED = "1.25"
+
+
+def faster(wav, tmp):
+    out = os.path.join(tmp, "f.wav")
+    try:
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", wav, "-filter:a", f"atempo={SPEED}", out], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+        return out
+    except Exception:
+        return wav
+
+
 def speak(text, tmp):
     wav = os.path.join(tmp, "m.wav")
     subprocess.run([sys.executable, "-m", "piper", "-m", MODEL, "-f", wav], input=text.encode(), check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
-    return to_mp3(wav)
+    return to_mp3(faster(wav, tmp))
 
 
 def main():
