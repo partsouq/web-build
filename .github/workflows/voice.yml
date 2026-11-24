@@ -1,0 +1,70 @@
+name: Voice for team messages
+
+# 24 Nov 2026 (owner approved "MP3 voice + alert"): every message from the Quantora team gets a spoken MP3,
+# made with the free Piper voice engine (tools/voice). Started by the database the moment a team message is
+# written; the schedule is only a backup. Zero cost: public repo. No key: GitHub's OIDC token proves the run.
+# Public log: message ids only, never the text.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "11,41 * * * *"
+
+concurrency:
+  group: voice
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # GitHub signs a token that proves to voice-worker this is our workflow
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Any messages waiting for a voice?
+        id: peek
+        run: |
+          TOK=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=quantora-voice" | python3 -c "import sys,json;print(json.load(sys.stdin)['value'])")
+          echo "::add-mask::$TOK"
+          N=$(curl -sS -X POST https://mcwcvyuvlkmqsivnzvjy.supabase.co/functions/v1/voice-worker \
+            -H "content-type: application/json" -H "x-github-oidc: $TOK" -d '{"action":"pending"}' | python3 -c "import sys,json;print(json.load(sys.stdin).get('queued',0))")
+          echo "queued=$N" >> "$GITHUB_OUTPUT"
+          echo "Messages waiting: $N"
+
+      - uses: actions/checkout@v4
+        if: steps.peek.outputs.queued != '0'
+        with:
+          sparse-checkout: tools/voice
+
+      - uses: actions/setup-python@v5
+        if: steps.peek.outputs.queued != '0'
+        with:
+          python-version: "3.12"
+
+      - name: Cache the voice
+        if: steps.peek.outputs.queued != '0'
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: tools/voice/model
+          key: piper-en-us-lessac-medium-v1
+
+      - name: Install the free voice engine
+        if: steps.peek.outputs.queued != '0'
+        working-directory: tools/voice
+        run: |
+          pip install --quiet piper-tts==1.8.0 lameenc==1.8.1
+          if [ ! -f model/en-us-lessac-medium.onnx ]; then
+            mkdir -p model && cd model
+            curl -sSL -o v.tar.gz https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-medium.tar.gz
+            tar xzf v.tar.gz && rm v.tar.gz
+          fi
+
+      - name: Make the voice files
+        if: steps.peek.outputs.queued != '0'
+        working-directory: tools/voice
+        env:
+          VOICE_WORKER_URL: https://mcwcvyuvlkmqsivnzvjy.supabase.co/functions/v1/voice-worker
+          VOICE_MODEL: model/en-us-lessac-medium.onnx
+        run: python worker.py
