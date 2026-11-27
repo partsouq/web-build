@@ -129,7 +129,7 @@ async function report(ok, failedStep, message) {
     });
 
     await step("Sign in", async () => {
-      const home = page.getByText("Where are you working today");
+      const home = page.getByText(/Where are you working today|What needs you/);
       const login = page.locator('a[href*="auth=login"]');
       await home.or(login).first().waitFor({ timeout: 45000 });
       if (!(await home.count())) {
@@ -142,7 +142,7 @@ async function report(ok, failedStep, message) {
     });
 
     await step("Create a project", async () => {
-      await page.getByText("Open projects").first().click();
+      await page.locator("button.qb-t-projects").or(page.getByText("Open projects")).first().click();
       await page.getByRole("button", { name: "+ New Project" }).first().click({ timeout: 20000 });
       const form = page.locator("form").filter({ hasText: "Project Name" }).first();
       await form.locator("input").first().fill(PROJECT);                 // Project name
@@ -303,8 +303,8 @@ async function report(ok, failedStep, message) {
     await closePops(); await hideActivity();
     if (!(await page.getByRole("button", { name: "Delete", exact: true }).count()) || !(await page.getByText(name).count())) {
       await page.goto(BASE, { waitUntil: "domcontentloaded" });
-      await page.getByText("Where are you working today").first().waitFor({ timeout: 45000 });
-      await page.getByText("Open projects").first().click();
+      await page.getByText(/Where are you working today|What needs you/).first().waitFor({ timeout: 45000 });
+      await page.locator("button.qb-t-projects").or(page.getByText("Open projects")).first().click();
       const card = page.getByText(name).first();
       if (!(await card.count())) { await page.waitForTimeout(3000); }
       if (!(await card.count())) return false;          // nothing to delete
@@ -329,8 +329,8 @@ async function report(ok, failedStep, message) {
     // leftovers from a run that stopped half-way
     for (let i = 0; i < 5; i++) {
       await page.goto(BASE, { waitUntil: "domcontentloaded" });
-      await page.getByText("Where are you working today").first().waitFor({ timeout: 45000 });
-      await page.getByText("Open projects").first().click(); await page.waitForTimeout(2500);
+      await page.getByText(/Where are you working today|What needs you/).first().waitFor({ timeout: 45000 });
+      await page.locator("button.qb-t-projects").or(page.getByText("Open projects")).first().click(); await page.waitForTimeout(2500);
       const left = page.getByText(/^ROBOT TEST \d{4}-\d{2}-\d{2}/).first();
       if (!(await left.count())) break;
       const name = (await left.innerText()).trim();
