@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Platform survey — Quantora Engineering</title>
+<link rel="icon" href="/icon192.png">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f1f4f9;font-family:"Segoe UI",Helvetica,Arial,sans-serif;color:#0f172a}
+.c{max-width:540px;margin:28px auto;background:#fff;border:1px solid #e3e8f0;border-radius:14px;overflow:hidden}
+@media (max-width:580px){.c{margin:0;border-radius:0;border-left:0;border-right:0}}
+.h{background:#0b1240;color:#fff;padding:16px 22px;display:flex;gap:12px;align-items:center}
+.h img{width:40px;height:40px;border-radius:9px}.h b{font-size:19px}.h span{color:#93c5fd;font-size:19px}
+.b{padding:22px}h1{font-size:21px;margin:0 0 4px}.d{color:#64748b;font-size:13.5px;margin-bottom:14px}
+.r{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #eef2f7}
+.r.top{background:#fffbeb;border-radius:10px;padding:10px;border:0;margin-bottom:4px}
+.r .t{font-weight:700;font-size:14px}.r .s{color:#64748b;font-size:12px}
+.st{white-space:nowrap;display:flex}
+.st button{background:none;border:0;padding:0 1px;font-size:27px;line-height:1;color:#e2e8f0;cursor:pointer}
+.st button.on{color:#f59e0b}.st button:focus-visible{outline:2px solid #4f46e5;border-radius:4px}
+textarea{width:100%;min-height:86px;border:1px solid #cbd5e1;border-radius:10px;padding:10px;font:14px "Segoe UI",Arial,sans-serif;margin-top:12px}
+.go{margin-top:12px;background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:13px 24px;font-size:15px;font-weight:700;cursor:pointer}
+.go:disabled{opacity:.6;cursor:default}
+.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:10px;padding:10px 12px;font-size:13.5px;margin-bottom:14px}
+.bad{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:13.5px;margin-bottom:14px}
+.f{color:#94a3b8;font-size:12px;padding:0 22px 18px}.f a{color:#94a3b8}
+</style></head><body>
+<div class="c">
+  <div class="h"><img src="/icon192.png" alt="Quantora"><div><b>Quantora</b><span> Engineering</span></div></div>
+  <div class="b" id="main"><div class="d">Loading…</div></div>
+  <div class="f">Estima AI · Quantora Engineering · <a href="https://quantoraengineering.com">quantoraengineering.com</a></div>
+</div>
+<script>
+// Platform survey (27 Nov 2026, owner approved). The link in the email carries its own token; the answers are
+// saved by two database functions that only accept that token. No sign-in, nothing else is read or written.
+(function () {
+  var URL_ = "https://mcwcvyuvlkmqsivnzvjy.supabase.co/rest/v1/rpc/";
+  var KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd2N2eXV2bGttcXNpdm56dmp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNjQ5OTksImV4cCI6MjEwMDc0MDk5OX0.YhwsYhxZOyNjCKqeycQorP88TDqCSYRsZutwWnvoRY0";
+  var LINES = [
+    ["overall", "Overall happiness", "The Quantora platform as a whole", true],
+    ["boq", "1. The BOQ", "Clear, complete, easy to use for your tender"],
+    ["accuracy", "2. Accuracy", "Quantities match your drawings and your own checks"],
+    ["takeoff", "3. Quantity take-off", "Counting and measuring"],
+    ["access", "4. Platform access", "Signing in, uploading, opening projects"],
+    ["ease", "5. Ease of work", "Finding things, reviewing lines, exporting"]
+  ];
+  var NAMES = {}; LINES.forEach(function (l) { NAMES[l[0]] = l[1].replace(/^\d\.\s*/, ""); });
+  var q = new URLSearchParams(location.search), token = q.get("t") || "", line = q.get("q"), rating = parseInt(q.get("r") || "", 10);
+  var main = document.getElementById("main"), ratings = {}, comment = "";
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function rpc(fn, body) {
+    return fetch(URL_ + fn, { method: "POST", headers: { "apikey": KEY, "Authorization": "Bearer " + KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { if (!r.ok) throw new Error("save failed"); return r.json(); });
+  }
+  function render(note, isBad, done) {
+    var h = note ? '<div class="' + (isBad ? "bad" : "ok") + '">' + note + "</div>" : "";
+    if (done) { main.innerHTML = h + '<h1>Thank you</h1><div class="d">Your feedback is saved and will be read. You can close this page.</div>'; return; }
+    h += "<h1>" + (line ? "Rate the other steps" : "Rate each step") + '</h1><div class="d">Optional, one tap each. 1 = poor, 5 = excellent.</div>';
+    LINES.forEach(function (l) {
+      var v = ratings[l[0]] || 0, s = "";
+      for (var n = 1; n <= 5; n++) s += '<button type="button" data-k="' + l[0] + '" data-n="' + n + '" class="' + (n <= v ? "on" : "") + '" aria-label="' + esc(l[1]) + ": " + n + ' of 5">&#9733;</button>';
+      h += '<div class="r' + (l[3] ? " top" : "") + '"><div><div class="t">' + esc(l[1]) + '</div><div class="s">' + esc(l[2]) + '</div></div><div class="st">' + s + "</div></div>";
+    });
+    h += '<textarea id="cm" maxlength="2000" placeholder="Anything to add? What worked, what should be better (optional)">' + esc(comment) + '</textarea><button class="go" id="go" type="button">Submit feedback</button>';
+    main.innerHTML = h;
+    main.querySelectorAll(".st button").forEach(function (b) {
+      b.onclick = function () { comment = document.getElementById("cm").value; ratings[b.getAttribute("data-k")] = parseInt(b.getAttribute("data-n"), 10); render(note, isBad); };
+    });
+    document.getElementById("go").onclick = function () {
+      var btn = this; btn.disabled = true; btn.textContent = "Saving…"; comment = document.getElementById("cm").value;
+      rpc("q_survey_submit", { p_token: token, p_ratings: ratings, p_comment: comment })
+        .then(function (r) { if (r && r.ok) render('&#10003; Saved. Thank you' + (first ? ", " + esc(first) : "") + ".", false, true); else render(esc((r && r.reason) || "Could not save. Please try again."), true); })
+        .catch(function () { render("Could not save. Please check your connection and try again.", true); });
+    };
+  }
+  var first = "";
+  function fatal(msg) { main.innerHTML = '<div class="bad">' + msg + '</div><div class="d">You can also reply to the email to send your feedback.</div>'; }
+  if (!/^[0-9a-f-]{36}$/i.test(token)) { fatal("This survey link is not complete. Please open it again from the email."); return; }
+  var body = { p_token: token };
+  if (line && NAMES[line] && rating >= 1 && rating <= 5) { body.p_line = line; body.p_rating = rating; }
+  rpc("q_survey_open", body).then(function (r) {
+    if (!r || !r.ok) { fatal(esc((r && r.reason) || "This survey link is not valid.")); return; }
+    first = r.first_name || ""; ratings = r.ratings || {}; comment = r.comment || "";
+    var note = body.p_line ? '&#10003; "' + esc(NAMES[line]) + ": " + rating + (rating > 1 ? " stars" : " star") + '" is saved. Thank you' + (first ? ", " + esc(first) : "") + "." : "";
+    render(note, false);
+  }).catch(function () { fatal("Could not open the survey. Please check your connection and try again."); });
+})();
+</script>
+</body></html>
